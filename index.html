@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yörünge Temizliği — Uzay Enkazı Takip Sistemi</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@300;400;500;600&display=swap');
+:root{--bg:#03080f;--surf:#07111e;--surf2:#0c1c30;--border:rgba(80,160,255,.10);--borderB:rgba(80,160,255,.28);--text:#ddeeff;--muted:#6a96bc;--dim:#2d5070;--accent:#2080ff;--accentBg:rgba(32,128,255,.12);--red:#ff3d50;--orange:#ff6428;--yellow:#ffcc00;--green:#22d66e;--redBg:rgba(255,61,80,.07);--orBg:rgba(255,100,40,.07);--yelBg:rgba(255,204,0,.07);--grBg:rgba(34,214,110,.07)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans',sans-serif;font-size:14px;line-height:1.6}
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:rgba(3,8,15,.97);backdrop-filter:blur(16px);position:sticky;top:0;z-index:200}
+.nav-brand{display:flex;align-items:center;gap:12px}
+.nav-orb{width:34px;height:34px;border-radius:50%;flex-shrink:0;background:radial-gradient(circle at 35% 35%,#60aaff,#0040c0);box-shadow:0 0 18px rgba(32,128,255,.5);position:relative;overflow:hidden;animation:floatOrb 4s ease-in-out infinite}
+.nav-orb::after{content:'';position:absolute;top:6px;left:6px;width:10px;height:7px;border-radius:50%;background:rgba(255,255,255,.35)}
+@keyframes floatOrb{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.brand-name{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;letter-spacing:-.2px}
+.brand-sub{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace}
+.nav-right{display:flex;align-items:center;gap:20px}
+.live-dot{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--green);font-family:'Space Mono',monospace}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,214,110,.5)}50%{box-shadow:0 0 0 6px rgba(34,214,110,0)}}
+#clock{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted)}
+.main-layout{display:flex;height:calc(100vh - 57px);overflow:hidden;width:100vw}
+.center-stage{flex:1;position:relative;background:#000;overflow:hidden}
+.right-panel{width:420px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);overflow-y:auto;overflow-x:hidden;background:var(--surf);z-index:100}
+.right-panel::-webkit-scrollbar{width:4px}
+.right-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.left-hud{position:absolute;top:20px;left:20px;z-index:50;display:flex;flex-direction:column;gap:15px;pointer-events:none}
+.side-tabs{pointer-events:auto;background:rgba(7,17,30,.85);border:1px solid var(--borderB);padding:8px;border-radius:12px;backdrop-filter:blur(10px);display:flex;flex-direction:column;gap:4px;width:max-content}
+.tab-btn{background:transparent;border:none;color:var(--muted);font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;padding:10px 16px;border-radius:8px;text-align:left;transition:all .2s;letter-spacing:.5px}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.tab-btn.active{color:#60aaff;background:var(--accentBg);border:1px solid rgba(32,128,255,.3)}
+.overlay-panel{pointer-events:none;background:rgba(7,17,30,.85);border:1px solid var(--borderB);padding:20px;border-radius:12px;backdrop-filter:blur(10px);width:300px;display:none}
+.overlay-title{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px}
+.overlay-sub{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:15px}
+.view-container{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.view-container canvas{display:block;width:100%;height:100%;pointer-events:auto;cursor:grab}
+.view-container canvas:active{cursor:grabbing}
+.sec-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surf);position:sticky;top:0;z-index:10}
+.sec-title{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
+.sec-badge{font-family:'Space Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:var(--accentBg);color:var(--accent);border:1px solid rgba(32,128,255,.2)}
+.sec-badge.red{background:var(--redBg);color:var(--red);border-color:rgba(255,61,80,.25);animation:bfl 2s infinite}
+@keyframes bfl{0%,100%{opacity:1}50%{opacity:.5}}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border)}
+.metric{background:var(--surf);padding:14px 16px;display:flex;flex-direction:column;gap:3px}
+.metric-label{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;line-height:1}
+.metric.red .metric-value{color:var(--red)}
+.metric.ora .metric-value{color:var(--orange)}
+.metric.yel .metric-value{color:var(--yellow)}
+.metric.acc .metric-value{color:var(--accent)}
+.metric-sub{font-size:10px;color:var(--dim)}
+.alert-banner{margin:12px;padding:10px 14px;background:var(--redBg);border:1px solid rgba(255,61,80,.28);border-radius:8px;display:flex;align-items:center;gap:10px;animation:banfl 3s infinite}
+@keyframes banfl{0%,100%{border-color:rgba(255,61,80,.28)}50%{border-color:rgba(255,61,80,.6)}}
+.ban-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;animation:pulse 1.5s infinite}
+.ban-text{font-family:'Space Mono',monospace;font-size:10px;color:var(--red);flex:1}
+.sat-list{padding:0}
+.sat-item{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.sat-item:hover{background:rgba(32,128,255,.04)}
+.sat-item:last-child{border-bottom:none}
+.sat-ico{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Space Mono',monospace;flex-shrink:0}
+.sat-ico.geo{background:rgba(96,170,255,.12);color:#60aaff;border:1px solid rgba(96,170,255,.3)}
+.sat-ico.leo{background:rgba(78,232,208,.1);color:#4ee8d0;border:1px solid rgba(78,232,208,.25)}
+.sat-info{flex:1;min-width:0}
+.sat-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.sat-meta{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.sat-risk{flex-shrink:0;text-align:right}
+.risk-badge{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px}
+.r-RED{background:var(--redBg);color:var(--red);border:1px solid rgba(255,61,80,.3)}
+.r-ORANGE{background:var(--orBg);color:var(--orange);border:1px solid rgba(255,100,40,.3)}
+.r-YELLOW{background:var(--yelBg);color:var(--yellow);border:1px solid rgba(255,204,0,.3)}
+.r-GREEN{background:var(--grBg);color:var(--green);border:1px solid rgba(34,214,110,.3)}
+.alert-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.alert-item:hover{background:var(--accentBg)}
+.alert-item:last-child{border-bottom:none}
+.alert-tier{flex-shrink:0;width:58px;padding:3px 0;text-align:center;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;margin-top:1px}
+.alert-body{flex:1;min-width:0}
+.alert-title{font-size:12px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert-stats{display:flex;gap:10px;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);flex-wrap:wrap}
+.alert-pc-wrap{flex-shrink:0;text-align:right}
+.alert-pc{font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+.alert-pc-lbl{font-size:9px;color:var(--dim);font-family:'Space Mono',monospace}
+.heatmap-wrap{padding:14px 16px 16px;overflow-x:auto}
+.hm-row{display:flex;align-items:center;gap:2px;margin-bottom:2px}
+.hm-lbl{font-size:9px;font-family:'Space Mono',monospace;color:var(--dim);width:68px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-cell{flex:1;height:20px;border-radius:3px;cursor:pointer;transition:transform .12s;min-width:11px}
+.hm-cell:hover{transform:scaleY(1.5);z-index:5;position:relative}
+.hm-axis{display:flex;gap:2px;margin-bottom:4px;margin-left:70px}
+.hm-ax{flex:1;font-size:8px;font-family:'Space Mono',monospace;color:var(--dim);text-align:center;min-width:11px}
+.upload-zone{margin:12px;padding:14px;border:1px dashed var(--borderB);border-radius:8px;text-align:center;cursor:pointer;transition:background .2s}
+.upload-zone p{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace}
+.upload-zone input{display:none}
+.scatter-wrap{padding:14px 16px 16px}
+.chart-legend{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.cl-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace}
+.cl-dot{width:9px;height:9px;border-radius:50%}
+.timeline-wrap{padding:12px 16px 16px}
+.tl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tl-lbl{font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);width:68px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-track{flex:1;height:20px;background:var(--surf2);border-radius:4px;overflow:hidden}
+.tl-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:7px;font-family:'Space Mono',monospace;font-size:9px;min-width:0;overflow:hidden;white-space:nowrap;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.tl-fill.RED{background:rgba(255,61,80,.22);color:var(--red);border-left:2px solid var(--red)}
+.tl-fill.ORANGE{background:rgba(255,100,40,.18);color:var(--orange);border-left:2px solid var(--orange)}
+.tl-fill.YELLOW{background:rgba(255,204,0,.14);color:var(--yellow);border-left:2px solid var(--yellow)}
+.tl-h{font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);min-width:28px;text-align:right}
+#tooltip{position:fixed;background:var(--surf2);border:1px solid var(--borderB);border-radius:8px;padding:9px 13px;font-size:11px;pointer-events:none;z-index:999;max-width:200px;display:none}
+.tt-title{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text)}
+.tt-row{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:10px;margin-bottom:2px}
+.tt-row span:last-child{color:var(--text);font-family:'Space Mono',monospace}
+.globe-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
+.sat-label{position:absolute;font-family:'Space Mono',monospace;font-size:10px;background:rgba(3,8,15,.85);border:1px solid var(--borderB);border-radius:5px;padding:3px 7px;white-space:nowrap;transform:translate(-50%,-190%);pointer-events:none}
+.sat-label.geo{color:#60aaff;border-color:rgba(96,170,255,.35)}
+.sat-label.leo{color:#4ee8d0;border-color:rgba(78,232,208,.35)}
+.sat-label.alert{color:var(--red);border-color:rgba(255,61,80,.5);animation:lfl 1.5s infinite}
+@keyframes lfl{0%,100%{opacity:1}50%{opacity:.4}}
+.globe-info{position:absolute;bottom:0;left:0;right:0;padding:10px 18px;background:linear-gradient(transparent,rgba(3,8,15,.95));display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+.globe-hint{font-size:10px;color:var(--dim);font-family:'Space Mono',monospace}
+.globe-legend{display:flex;gap:16px}
+.gl-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;pointer-events:auto}
+.gl-dot{width:8px;height:8px;border-radius:50%}
+.hm-bar-wrap{margin-bottom:12px}
+.hm-bar-head{display:flex;justify-content:space-between;font-size:11px;font-family:'Space Mono',monospace;margin-bottom:6px;font-weight:700}
+.hm-bar-bg{width:100%;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+.hm-bar-fill{height:100%;border-radius:3px}
+.hm-legend{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(7,17,30,.85);border:1px solid var(--borderB);padding:15px 25px;border-radius:12px;backdrop-filter:blur(10px);text-align:center;pointer-events:none}
+@media(max-width:900px){.main-layout{flex-direction:column;height:auto;overflow:visible}.center-stage{height:55vh}.right-panel{width:100%;height:auto}.left-hud{position:relative;top:0;left:0;padding:15px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-brand"><div class="nav-orb"></div><div><div class="brand-name">YÖRÜNGE TEMİZLİĞİ</div><div class="brand-sub">Uzay Enkazı Takip Sistemi</div></div></div>
+  <div class="nav-right"><div class="live-dot"><div class="dot"></div>CANLI</div><div id="clock">--:--:-- UTC</div></div>
+</nav>
+<div id="tooltip"><div class="tt-title" id="tt-title"></div><div id="tt-body"></div></div>
+<div class="main-layout">
+  <div class="center-stage" id="center-stage">
+    <div class="left-hud">
+      <div class="side-tabs">
+        <button id="tab-main" class="tab-btn active" onclick="switchTab('main')">📡 ANA EKRAN</button>
+        <button id="tab-heatmap" class="tab-btn" onclick="switchTab('heatmap')">🔥 ISI HARİTASI</button>
+        <button id="tab-debris" class="tab-btn" onclick="switchTab('debris')">🌪️ ENKAZ BULUTU</button>
+      </div>
+      <div class="overlay-panel" id="panel-heatmap">
+        <div class="overlay-title">YOĞUNLUK ANALİZİ (ISI)</div>
+        <div class="overlay-sub">24 saatlik periyotta yörünge geçiş sıklığı modeli.</div>
+        <div class="hm-bar-wrap"><div class="hm-bar-head"><span style="color:var(--red)">LEO (Alçak)</span><span>~14,582 geçiş</span></div><div class="hm-bar-bg"><div class="hm-bar-fill" style="background:var(--red);width:92%"></div></div></div>
+        <div class="hm-bar-wrap"><div class="hm-bar-head"><span style="color:var(--green)">MEO (Orta)</span><span>~3,240 geçiş</span></div><div class="hm-bar-bg"><div class="hm-bar-fill" style="background:var(--green);width:35%"></div></div></div>
+        <div class="hm-bar-wrap"><div class="hm-bar-head"><span style="color:#60aaff">GEO (Sabit)</span><span>~450 geçiş</span></div><div class="hm-bar-bg"><div class="hm-bar-fill" style="background:#60aaff;width:12%"></div></div></div>
+      </div>
+      <div class="overlay-panel" id="panel-debris">
+        <div class="overlay-title">KESSLER SENDROMU MODELİ</div>
+        <div class="overlay-sub">Dünya'nın alt katmanından dış uzaya doğru uzanan enkaz dağılımı.</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid var(--borderB);padding-bottom:8px"><span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--dim)">Toplam Enkaz:</span><span style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:var(--red)">22,830</span></div>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);line-height:1.8"><span style="color:var(--red)">●</span> Yoğunluk LEO'da maksimumdur.<br><span style="color:var(--dim)">●</span> Mesafe arttıkça çöpler azalır.<br><span style="color:#3b82f6">●</span> En dışta GEO kalıntıları yer alır.</div>
+      </div>
+    </div>
+    <div id="view-main" class="view-container" style="display:block;z-index:10">
+      <canvas id="globe-canvas"></canvas>
+      <div class="globe-overlay" id="globe-overlay"></div>
+      <div class="globe-info">
+        <div class="globe-hint">Sürükle: kamerayı döndür · Kaydır: yakınlaştır</div>
+        <div class="globe-legend"><div class="gl-item"><div class="gl-dot" style="background:#60aaff"></div>GEO</div><div class="gl-item"><div class="gl-dot" style="background:#4ee8d0"></div>LEO</div><div class="gl-item"><div class="gl-dot" style="background:#ff3d50"></div>Riskli</div><div class="gl-item"><div class="gl-dot" style="background:#3a4a5a"></div>Enkaz</div></div>
+      </div>
+    </div>
+    <div id="view-heatmap" class="view-container" style="display:none">
+      <canvas id="heatmap-canvas"></canvas>
+      <div class="hm-legend"><div style="font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);margin-bottom:8px;font-weight:700">GEÇİŞ FREKANSI</div><div style="width:250px;height:8px;border-radius:4px;margin-bottom:6px;background:linear-gradient(to right,#0088ff,#00ff44,#ff8800,#ff2200)"></div><div style="display:flex;justify-content:space-between;font-size:9px;font-family:'Space Mono',monospace;color:var(--dim);font-weight:700"><span>DÜŞÜK</span><span>KRİTİK</span></div></div>
+    </div>
+    <div id="view-debris" class="view-container" style="display:none">
+      <canvas id="debris-canvas"></canvas>
+      <div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);pointer-events:none">Sürükle: Döndür · Tekerlek: Yakınlaştır</div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div class="alert-banner"><div class="ban-dot"></div><div class="ban-text" id="ban-text">AKTİF KAVUŞUM UYARISI — 24s PENCERESİNDE 2 KRİTİK OLAY</div></div>
+    <div class="metrics">
+      <div class="metric red"><div class="metric-label">🔴 Kritik</div><div class="metric-value" id="m-red">2</div><div class="metric-sub">Acil inceleme</div></div>
+      <div class="metric ora"><div class="metric-label">🟠 Turuncu</div><div class="metric-value" id="m-orange">5</div><div class="metric-sub">Yakın takip</div></div>
+      <div class="metric yel"><div class="metric-label">🟡 Sarı</div><div class="metric-value" id="m-yellow">11</div><div class="metric-sub">İzleniyor</div></div>
+      <div class="metric acc"><div class="metric-label">📡 Takip</div><div class="metric-value" id="m-tracked">847</div><div class="metric-sub">Nesne (72s)</div></div>
+    </div>
+    <div class="sec-head"><span class="sec-title">Türk Uydular — Anlık Konum</span><span class="sec-badge">TLE · CelesTrak</span></div>
+    <div class="sat-list" id="sat-list"></div>
+    <div class="sec-head" style="margin-top:4px"><span class="sec-title">Aktif Kavuşum Uyarıları</span><span class="sec-badge red" id="alert-badge">12 olay</span></div>
+    <div id="alert-list"></div>
+    <div class="upload-zone" onclick="document.getElementById('json-up').click()"><p>📂 Pipeline JSON Çıktısını Yükle</p><input type="file" id="json-up" accept=".json,.md" onchange="loadJSON(event)"></div>
+    <div class="sec-head"><span class="sec-title">Risk Isı Haritası — Uydu × Zaman</span><div style="display:flex;align-items:center;gap:6px"><div style="width:56px;height:7px;border-radius:3px;background:linear-gradient(to right,#0d2a0d,#1a5a1a,#8a5f00,#d44800,#ff1500)"></div><span style="font-size:9px;color:var(--dim);font-family:'Space Mono',monospace">DÜŞÜK→YÜKSEK</span></div></div>
+    <div class="heatmap-wrap" id="heatmap"></div>
+    <div class="sec-head"><span class="sec-title">Çarpışma Olasılığı vs. Kaçış Mesafesi</span><span class="sec-badge">log ölçek</span></div>
+    <div class="scatter-wrap"><div class="chart-legend" id="scatter-legend"></div><div style="position:relative;height:230px"><canvas id="scatter-chart"></canvas></div></div>
+    <div class="sec-head"><span class="sec-title">En Yakın Geçiş Zamanları (TCA)</span><span class="sec-badge">72 saat</span></div>
+    <div class="timeline-wrap" id="timeline"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);display:flex;justify-content:space-between"><span>SGP4 · Chan Analitik · RF+LSTM</span><span>CelesTrak · Space-Track.org</span></div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
