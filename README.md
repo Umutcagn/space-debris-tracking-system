@@ -128,7 +128,7 @@ os.chdir('bursenal')
 ## Project Structure
 
 ```
-bursenal/
+space-debris-tracking-system/
 ├── agents/
 │   ├── tle-ingestion-agent/        # TLE data fetching & validation
 │   ├── orbit-propagation-agent/    # SGP4 propagation & screening
@@ -141,12 +141,10 @@ bursenal/
 │   ├── ORBITAL_MECHANICS_REFERENCE.md
 │   └── DEBRIS_CATALOG_GUIDE.md     # CelesTrak & Space-Track guide
 │
-├── orchestrator/
-│   └── YORUNGE-TEMIZLIGI-STATUS.md # Pipeline activation checklist
-│
-├── journal/entries/                # Agent cycle logs (runtime)
-├── requirements.txt
-└── AGENT_REGISTRY.md
+├── scripts/                        # Historical CDM fetch & processing
+├── index.html                      # Interactive Collision Tracker UI
+├── app.js                          # Web visualizer & telemetry engine
+└── requirements.txt
 ```
 
 ---
