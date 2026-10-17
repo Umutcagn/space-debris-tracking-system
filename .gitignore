@@ -60,3 +60,5 @@ Thumbs.db
 *token*
 *secret*
 *credential*
+
+.pytest_cache/

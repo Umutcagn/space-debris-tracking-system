@@ -2,6 +2,8 @@
 
 Turkish satellite conjunction risk detection using SGP4 orbit propagation and ML scoring.
 
+[![Tests](https://github.com/Umutcagn/space-debris-tracking-system/actions/workflows/tests.yml/badge.svg)](https://github.com/Umutcagn/space-debris-tracking-system/actions/workflows/tests.yml)
+
 > Hackathon project — detects potential collisions between Turkish satellites and space debris using real orbital data from NASA/US Space Force.
 
 ---
@@ -13,7 +15,7 @@ There are **22,000+ tracked objects** in Earth's orbit. This system:
 1. Fetches real-time orbital data (TLEs) from CelesTrak and Space-Track.org
 2. Propagates all objects' trajectories 72 hours forward using the SGP4 algorithm
 3. Finds which debris objects will pass dangerously close to Turkish satellites
-4. Computes collision probability using the Chan analytic formula
+4. Computes collision probability using Chan's series in the encounter plane
 5. Scores each event with a Random Forest + LSTM ensemble model (SHAP explainability)
 6. Generates tiered alerts: 🟢 GREEN / 🟡 YELLOW / 🟠 ORANGE / 🔴 RED
 
@@ -101,6 +103,39 @@ For quick demo/testing, generate synthetic training data:
 
 ---
 
+## Collision Probability (Pc)
+
+`compute_pc.py` projects the combined position covariance onto the encounter plane (perpendicular to the relative velocity) and evaluates **Chan's series** in its principal axes:
+
+$$P_c = \sum_{m \ge 0} \frac{e^{-v/2}(v/2)^m}{m!}\left[1 - e^{-u/2}\sum_{k=0}^{m}\frac{(u/2)^k}{k!}\right], \quad u = \frac{R^2}{\sigma_u\sigma_v},\ v = \frac{x^2}{\sigma_u^2} + \frac{y^2}{\sigma_v^2}$$
+
+Earlier versions used only the leading term with a small-radius approximation, which overestimated Pc by up to ~20% when the hard-body radius is comparable to the position uncertainty. Accuracy against direct numerical integration of the 2D Gaussian over the hard-body circle (`tests/test_collision_probability.py`):
+
+| Geometry | Chan series | Old leading-term formula |
+|---|---|---|
+| Isotropic covariance (any radius) | exact (< 1e-6 relative) | up to +21% |
+| 10:1 elongated covariance | −1% to −6% | −1% to −6% |
+
+The elongated-covariance error is the known limitation of Chan's equal-area approximation.
+
+### Known limitations
+- Covariances are fixed defaults per orbital band (`DEFAULT_COVARIANCE`), not real CDM covariances, and primary and secondary are assumed equal.
+- In the pipeline, the miss vector is taken in the primary's RSW frame and the relative velocity is approximated as purely along-track; the Pc values are therefore screening-level estimates, not operational ones.
+- No trained ML model is included; training requires exported CDM data and has not been evaluated in this repository.
+
+---
+
+## Tests
+
+```bash
+pip install numpy scipy sgp4 pytest
+python -m pytest tests -q
+```
+
+The tests cover Chan's series against numerical integration, frame-rotation invariance of Pc, severity tiers, TLE parsing, mean-motion-to-altitude conversion, RSW frame construction, TCA refinement on SGP4-propagated orbits and vectorized conjunction screening. They run on every push via GitHub Actions.
+
+---
+
 ## Google Colab
 
 The entire pipeline runs on Google Colab. Recommended notebook structure for team collaboration:
@@ -142,7 +177,7 @@ space-debris-tracking-system/
 │   └── DEBRIS_CATALOG_GUIDE.md     # CelesTrak & Space-Track guide
 │
 ├── scripts/                        # Historical CDM fetch & processing
-├── index.html                      # Interactive Collision Tracker UI
+├── index.html                      # Interactive Collision Tracker UI (static sample alerts, not wired to the pipeline)
 ├── app.js                          # Web visualizer & telemetry engine
 └── requirements.txt
 ```
@@ -161,7 +196,7 @@ space-debris-tracking-system/
 ## Tech Stack
 
 - **SGP4** — NASA standard orbit propagation
-- **Chan formula** — analytic collision probability
+- **Chan series** — analytic 2D collision probability, validated against numerical integration
 - **Random Forest** — tabular risk scoring (scikit-learn)
 - **LSTM** — temporal approach sequence model (TensorFlow)
 - **SHAP** — model explainability

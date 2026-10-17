@@ -12,6 +12,7 @@ import os
 from datetime import datetime, timezone
 
 import numpy as np
+from scipy.stats import poisson
 
 # ── Default covariance models (1-sigma, km, in RSW frame) ────────────────────
 DEFAULT_COVARIANCE = {
@@ -105,11 +106,26 @@ def chan_pc(miss_vec_eci: np.ndarray, rel_vel_eci: np.ndarray,
     x_miss = float(eigvecs[:, 0] @ miss_2d)
     y_miss = float(eigvecs[:, 1] @ miss_2d)
 
-    # Chan Gaussian approximation
-    # Pc = (pi * HBR^2) / (2*pi*sigma_u*sigma_v) * exp(-0.5*((x/su)^2 + (y/sv)^2))
-    exponent = -0.5 * ((x_miss / sigma_u)**2 + (y_miss / sigma_v)**2)
-    pc = (math.pi * hbr_km**2) / (2 * math.pi * sigma_u * sigma_v) * math.exp(exponent)
-    return min(pc, 1.0)
+    return chan_series_pc(x_miss, y_miss, sigma_u, sigma_v, hbr_km)
+
+
+def chan_series_pc(x_miss: float, y_miss: float, sigma_u: float, sigma_v: float, hbr_km: float) -> float:
+    """
+    Chan's series for the 2D encounter-plane collision probability (principal axes).
+
+        u = HBR^2 / (sigma_u * sigma_v),   v = (x/sigma_u)^2 + (y/sigma_v)^2
+        Pc = exp(-v/2) * sum_m (v/2)^m/m! * [1 - exp(-u/2) * sum_{k<=m} (u/2)^k/k!]
+
+    The bracket is P(K > m) for K ~ Poisson(u/2), so Pc = P(K > M) with M ~ Poisson(v/2).
+    Exact for isotropic covariance; for elongated covariance it uses Chan's equal-area
+    circle approximation.
+    """
+    u = hbr_km**2 / (sigma_u * sigma_v)
+    v = (x_miss / sigma_u)**2 + (y_miss / sigma_v)**2
+    lam = v / 2.0
+    m = np.arange(0, int(lam + 12.0 * math.sqrt(lam + 1.0) + 50))
+    pc = float(np.sum(poisson.pmf(m, lam) * poisson.sf(m, u / 2.0)))
+    return min(max(pc, 0.0), 1.0)
 
 
 def load_latest_file(directory: str, suffix: str) -> str | None:
