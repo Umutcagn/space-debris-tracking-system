@@ -4,6 +4,8 @@ Turkish satellite conjunction risk detection using SGP4 orbit propagation and ML
 
 [![Tests](https://github.com/Umutcagn/space-debris-tracking-system/actions/workflows/tests.yml/badge.svg)](https://github.com/Umutcagn/space-debris-tracking-system/actions/workflows/tests.yml)
 
+**Demo arayüzü:** https://umutcagn.github.io/space-debris-tracking-system/ (statik örnek uyarılar gösterir; Python pipeline'ına bağlı değildir)
+
 > Hackathon project — detects potential collisions between Turkish satellites and space debris using real orbital data from NASA/US Space Force.
 
 ---
