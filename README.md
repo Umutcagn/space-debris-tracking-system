@@ -1,6 +1,6 @@
 # Yörünge Temizliği — Space Debris Tracking System
 
-Turkish satellite conjunction risk detection using SGP4 orbit propagation and ML scoring.
+Turkish satellite conjunction risk detection using SGP4 orbit propagation and Chan-series collision probability.
 
 [![Tests](https://github.com/Umutcagn/space-debris-tracking-system/actions/workflows/tests.yml/badge.svg)](https://github.com/Umutcagn/space-debris-tracking-system/actions/workflows/tests.yml)
 
@@ -18,7 +18,7 @@ There are **22,000+ tracked objects** in Earth's orbit. This system:
 2. Propagates all objects' trajectories 72 hours forward using the SGP4 algorithm
 3. Finds which debris objects will pass dangerously close to Turkish satellites
 4. Computes collision probability using Chan's series in the encounter plane
-5. Scores each event with a Random Forest + LSTM ensemble model (SHAP explainability)
+5. Optionally scores events with a Random Forest + LSTM ensemble (SHAP explainability) — **scaffold only, no trained model is included**; without one, alerts use the analytic Pc tiers
 6. Generates tiered alerts: 🟢 GREEN / 🟡 YELLOW / 🟠 ORANGE / 🔴 RED
 
 ---
@@ -49,7 +49,7 @@ CelesTrak / Space-Track
         ↓
 [conjunction-analysis-agent] → precise TCA, Chan Pc, ML features
         ↓
-[ml-scoring-agent]         → RF + LSTM ensemble, SHAP explanations
+[ml-scoring-agent]         → analytic Pc tiers (optional RF + LSTM, untrained)
         ↓
 [alert-reporting-agent]    → tiered alerts + weekly report
 ```
